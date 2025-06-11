@@ -25,24 +25,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
 
+        // Skip JWT processing for OPTIONS requests (CORS preflight)
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String authHeader = request.getHeader("Authorization");
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
 
-            if (jwtService.validateToken(token) && !jwtService.isTokenExpired(token)) {
-                String username = jwtService.extractUsername(token);
-                String role = jwtService.extractRole(token);
-                Long userId = jwtService.extractUserId(token);
+            try {
+                if (jwtService.validateToken(token) && !jwtService.isTokenExpired(token)) {
+                    String username = jwtService.extractUsername(token);
+                    String role = jwtService.extractRole(token);
+                    Long userId = jwtService.extractUserId(token);
 
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userId,
-                                null,
-                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
-                        );
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userId,
+                                    null,
+                                    Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                            );
 
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception e) {
+                // Log the exception if needed
+                System.err.println("JWT Authentication error: " + e.getMessage());
+                // Clear the security context
+                SecurityContextHolder.clearContext();
             }
         }
 
